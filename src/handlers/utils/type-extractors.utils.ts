@@ -5,7 +5,9 @@ import {
     InterfaceType,
     isPropertyAssignment,
     isShorthandPropertyAssignment,
+    SourceFile,
     Symbol as TypeSymbol,
+    Type as TypeType,
 } from 'typescript';
 
 export const getPropertyAssignmentValue = (assignment: Declaration): Expression | undefined => {
@@ -33,4 +35,12 @@ export function getClassConstructor(classType: InterfaceType): TypeSymbol | unde
     }
 
     return constructor;
+}
+
+export function getSourceFile(type: TypeType): SourceFile {
+    const { declarations } = type.symbol;
+    if (!declarations || declarations.length === 0) {
+        throw new Error(`Unable to get class declaration for class ${type.symbol.getName()}`);
+    }
+    return declarations[0].getSourceFile();
 }

@@ -4,31 +4,18 @@ import {
     factory,
     isConstructorDeclaration,
     NodeFlags,
-    SourceFile,
     Statement,
     Symbol as TypeSymbol,
     SyntaxKind,
     Type,
     VariableStatement,
 } from 'typescript';
-import path = require('path');
 import { DefaultValueHandler } from './types';
 import { isNumberType, isStringType, isSymbolType } from '../fixture-transformer.guards';
-import { getClassConstructor, getPropertyAssignmentValue, overrideUndefinedCheck } from './utils';
+import { getClassConstructor, getPropertyAssignmentValue, getSourceFile, overrideUndefinedCheck } from './utils';
 import { handlerFail, handlerSuccess } from './utils/return.utils';
-
-function calculateRequirePath(currentFile: SourceFile, sourceFile: SourceFile): string {
-    let relativePath = path.relative(
-        path.dirname(currentFile.fileName),
-        sourceFile.fileName,
-    ).replace(/(\.d)?\.ts$/, '');
-
-    relativePath = (!relativePath.startsWith('..') && !relativePath.startsWith('./'))
-        ? `./${relativePath}`
-        : relativePath;
-
-    return relativePath;
-}
+import { calculateRequirePath } from './utils/calculate.utils';
+import { createCallExpressionBlock, createRequireStatement } from './utils/create.utils';
 
 export const classHandler: DefaultValueHandler = (
     { type, typeChecker, override, parameter, inUndefinedUnion, currentFile, defaultValueFunction, options, level },
@@ -47,36 +34,16 @@ export const classHandler: DefaultValueHandler = (
         overrideProperties.push(...overrideType.getProperties());
     }
 
-    const { declarations } = type.symbol;
-    if (!declarations || declarations.length === 0) {
-        throw new Error(`Unable to get class declaration for class ${type.symbol.getName()}`);
-    }
-
     const blockStatements: Statement[] = [];
 
     let classRequireStatement: VariableStatement | undefined;
 
-    const sourceFile = declarations[0].getSourceFile();
+    const sourceFile = getSourceFile(type);
     const differentFile = sourceFile !== currentFile;
     if (differentFile) {
         const relativePath = calculateRequirePath(currentFile, sourceFile);
 
-        classRequireStatement = factory.createVariableStatement(
-            undefined,
-            factory.createVariableDeclarationList(
-                [factory.createVariableDeclaration(
-                    factory.createIdentifier(`${type.symbol.getName()}File`),
-                    undefined,
-                    undefined,
-                    factory.createCallExpression(
-                        factory.createIdentifier('require'),
-                        undefined,
-                        [factory.createStringLiteral(relativePath)],
-                    ),
-                )],
-                NodeFlags.Const,
-            ),
-        );
+        classRequireStatement = createRequireStatement(`${type.symbol.getName()}File`, relativePath);
         blockStatements.push(classRequireStatement);
     }
 
@@ -313,17 +280,5 @@ export const classHandler: DefaultValueHandler = (
     const returnStatement = factory.createReturnStatement(classInstanceIdentifier);
     blockStatements.push(returnStatement);
 
-    return handlerSuccess(factory.createCallExpression(
-        factory.createFunctionExpression(
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            factory.createBlock(blockStatements),
-        ),
-        undefined,
-        [],
-    ));
+    return handlerSuccess(createCallExpressionBlock(blockStatements));
 };

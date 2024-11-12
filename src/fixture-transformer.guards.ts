@@ -39,6 +39,7 @@ export const isArrayType = (type: Type, typeChecker: TypeChecker): boolean => (
     typeChecker.isArrayType(type) || typeChecker.isTupleType(type)
 );
 export const isSymbolType = (type: Type): boolean => !!(type.flags & TypeFlags.ESSymbolLike);
+export const isUniqueSymbolType = (type: Type): boolean => !!(type.flags & TypeFlags.UniqueESSymbol);
 export const isBigIntLiteralType = (type: Type): type is BigIntLiteralType => !!(type.flags & TypeFlags.BigIntLiteral);
 export const isSourceFile = (node: Node): node is SourceFile => node.kind === SyntaxKind.SourceFile;
 

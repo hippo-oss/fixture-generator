@@ -36,6 +36,7 @@ describe('fixture-transformer.tuple', () => {
                 fixture: newFixture<[...string[], number]>(['customString', 'customString2', 2]),
                 expected: ['customString', 'customString2', 2],
             },
+            // TODO: add better support for non-ending variadic tuples
             // known broken test
             // { fixture: newFixture<[...string[], number]>(['customString']), expected: ['customString', 1] },
             { fixture: newFixture<[...string[], number]>([2]), expected: [2] },
@@ -45,6 +46,7 @@ describe('fixture-transformer.tuple', () => {
                 expected: ['customString', 2, 3, false],
             },
             { fixture: newFixture<[string, ...number[], boolean]>(['customString']), expected: ['customString', true] },
+            // TODO: add better support for non-ending variadic tuples
             // known broken test
             // {
             //     fixture: newFixture<[string, ...number[], boolean]>(['customString', 2]),
