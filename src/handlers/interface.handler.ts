@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
-import { Expression, factory, Symbol as TypeSymbol, Type, Type as TypeType } from 'typescript';
+import { Expression, factory, PropertyName, Type, Type as TypeType } from 'typescript';
 import { DefaultValueHandler } from './types';
 import {
     isAnonymousInterface,
@@ -12,6 +12,7 @@ import {
 } from '../fixture-transformer.guards';
 import { getPropertyAssignmentValue, overrideUndefinedCheck } from './utils';
 import { handlerFail, handlerSuccess } from './utils/return.utils';
+import { TypeSymbolWithLinks } from './types/object.types';
 
 export const interfaceHandler: DefaultValueHandler = (
     { type, typeChecker, override, parameter, inUndefinedUnion, currentFile, defaultValueFunction, options, level },
@@ -20,7 +21,7 @@ export const interfaceHandler: DefaultValueHandler = (
         return handlerFail();
     }
 
-    const overrideProperties: TypeSymbol[] = [];
+    const overrideProperties: TypeSymbolWithLinks[] = [];
     if (override) {
         overrideUndefinedCheck({ typeChecker, override, parameter, inUndefinedUnion, typeString: 'interface' });
         const overrideType = typeChecker.getTypeAtLocation(override);
@@ -30,9 +31,10 @@ export const interfaceHandler: DefaultValueHandler = (
         overrideProperties.push(...overrideType.getProperties());
     }
 
-    const properties = typeChecker.getPropertiesOfType(type);
+    const properties = typeChecker.getPropertiesOfType(type) as TypeSymbolWithLinks[];
 
     const propertyAssignments = properties.map((prop) => {
+        const originalProp = prop;
         if (isTransientProperty(prop)) {
             if (prop.declarations && prop.declarations[0]) {
                 const declaration = prop.declarations[0] as unknown as TypeType;
@@ -66,11 +68,27 @@ export const interfaceHandler: DefaultValueHandler = (
             propType = typeChecker.getTypeOfSymbol(prop);
         }
 
+        let propName = prop.getName();
+        let propKey: string | PropertyName = `['${propName}']`;
+        if (originalProp.links?.nameType && isSymbolType(originalProp.links.nameType)) {
+            propName = originalProp.links.nameType.symbol.getName();
+            propKey = factory.createComputedPropertyName(
+                    defaultValueFunction({
+                        type: originalProp.links.nameType,
+                        typeChecker,
+                        override: undefined,
+                        currentFile,
+                        options,
+                        level,
+                }).data
+            );
+        }
+
         const propValue = defaultValueFunction({
             type: propType,
             typeChecker,
             override: overrideValueExpression,
-            parameter: prop.getName(),
+            parameter: propName,
             currentFile,
             options,
             level,
@@ -80,7 +98,7 @@ export const interfaceHandler: DefaultValueHandler = (
         }
 
         return factory.createPropertyAssignment(
-            `['${prop.getName()}']`,
+            propKey,
             propValue.data,
         );
     }).filter((assignment) => assignment !== undefined);
@@ -125,11 +143,27 @@ export const interfaceHandler: DefaultValueHandler = (
             throw new Error(`Value declaration for override property is of unknown type ${overrideProperty.getName()}`);
         }
 
+        let propName = overrideProperty.getName();
+        let propKey: string | PropertyName = `['${propName}']`;
+        if (overrideProperty.links?.nameType && isSymbolType(overrideProperty.links.nameType)) {
+            propName = overrideProperty.links.nameType.symbol.getName();
+            propKey = factory.createComputedPropertyName(
+                defaultValueFunction({
+                    type: overrideProperty.links.nameType,
+                    typeChecker,
+                    override: undefined,
+                    currentFile,
+                    options,
+                    level,
+                }).data
+            );
+        }
+
         const propValue = defaultValueFunction({
             type: indexSignatureType,
             typeChecker,
             override: overrideValueExpression,
-            parameter: overrideProperty.getName(),
+            parameter: propName,
             currentFile,
             options,
             level,
@@ -138,7 +172,7 @@ export const interfaceHandler: DefaultValueHandler = (
             return undefined;
         }
         return factory.createPropertyAssignment(
-            `['${overrideProperty.getName()}']`,
+            propKey,
             propValue.data,
         );
     }).filter((assignment) => assignment !== undefined);

@@ -97,17 +97,28 @@ describe('fixture-transformer.anonymous-object', () => {
             });
     });
 
-    // known broken tests can't be xit'd and instead have to be commented out (as they fail when being compiled)
-    // it('should work with multiple different index signature key values', () => {
-    //     const symbol = Symbol('key');
-    //     const test = newFixture<{ [key: string]: string, [key: symbol]: number }>({
-    //         testNumber: 'testString',
-    //         [symbol]: 200,
-    //     });
-    //     expect(test)
-    //         .toEqual({
-    //             testNumber: 100,
-    //             [symbol]: 200,
-    //         });
-    // });
+    it('should work with symbol symbol index signature key values', () => {
+        const symbol = Symbol('key');
+        const test = newFixture<{ [key: symbol]: string }>({
+            [symbol]: 'test',
+        });
+
+        expect(test)
+            .toEqual({
+                [symbol]: 'test',
+            });
+    }); 
+
+    it('should work with multiple different index signature key values', () => {
+        const symbol = Symbol('key');
+        const test = newFixture<{ [key: string]: string, [key: symbol]: number }>({
+            testNumber: 'testString',
+            [symbol]: 200,
+        });
+        expect(test)
+            .toEqual({
+                testNumber: 'testString',
+                [symbol]: 200,
+            });
+    });
 });

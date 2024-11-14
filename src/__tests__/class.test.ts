@@ -171,6 +171,22 @@ describe('fixture-transformer.class', () => {
                 });
         });
 
+        it('should work for symbol index signature key values', () => {
+            class TestClass {
+                [key: symbol]: string;
+            }
+
+            const testSymbol = Symbol('testSymbol');
+            const test = newFixture<TestClass>({
+                [testSymbol]: 'test',
+            });
+
+            expect(test)
+                .toEqual({
+                    [testSymbol]: 'test',
+                });
+        });
+
         it('should correctly allow partial overrides for index signature key values', () => {
             class TestClass {
                 [key: string]: { [key: string]: number, definedKey1: number, definedKey2: number };

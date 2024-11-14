@@ -27,4 +27,10 @@ describe('fixture-transformer.symbol', () => {
             expect(test)
                 .toEqual({ symbolTest });
         });
+        it('should correctly work with symbols as the key of an object', () => {
+            const testSymbol = Symbol('testSymbol');
+            const test = newFixture<{ [testSymbol]: string }>();
+            expect(test)
+                .toEqual({ [testSymbol]: 'defaultTestSymbol' });
+        });
 });

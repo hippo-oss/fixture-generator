@@ -5,7 +5,6 @@ import {
     isConstructorDeclaration,
     NodeFlags,
     Statement,
-    Symbol as TypeSymbol,
     SyntaxKind,
     Type,
     VariableStatement,
@@ -16,6 +15,7 @@ import { getClassConstructor, getPropertyAssignmentValue, getSourceFile, overrid
 import { handlerFail, handlerSuccess } from './utils/return.utils';
 import { calculateRequirePath } from './utils/calculate.utils';
 import { createCallExpressionBlock, createRequireStatement } from './utils/create.utils';
+import { TypeSymbolWithLinks } from './types/object.types';
 
 export const classHandler: DefaultValueHandler = (
     { type, typeChecker, override, parameter, inUndefinedUnion, currentFile, defaultValueFunction, options, level },
@@ -24,7 +24,7 @@ export const classHandler: DefaultValueHandler = (
         return handlerFail();
     }
 
-    const overrideProperties: TypeSymbol[] = [];
+    const overrideProperties: TypeSymbolWithLinks[] = [];
     if (override) {
         overrideUndefinedCheck({ typeChecker, override, parameter, inUndefinedUnion, typeString: 'interface' });
         const overrideType = typeChecker.getTypeAtLocation(override);
@@ -57,7 +57,7 @@ export const classHandler: DefaultValueHandler = (
         )
         : factory.createIdentifier(type.symbol.getName());
 
-    const properties = typeChecker.getPropertiesOfType(type);
+    const properties = typeChecker.getPropertiesOfType(type) as TypeSymbolWithLinks[];
     if (!constructor) {
         const classInstanceStatement = factory.createVariableStatement(
             undefined,
@@ -182,13 +182,27 @@ export const classHandler: DefaultValueHandler = (
 
         overrideProperties.splice(overrideProperties.indexOf(overrideProperty), 1);
 
+        let propName = prop.getName();
+        let propKey: string | Expression = factory.createStringLiteral(propName);
+        if (prop.links?.nameType && isSymbolType(prop.links.nameType)) {
+            propName = prop.links.nameType.symbol.getName();
+            propKey = defaultValueFunction({
+                type: prop.links.nameType,
+                typeChecker,
+                override: undefined,
+                currentFile,
+                options,
+                level,
+            }).data;
+        }
+
         const propType = typeChecker.getTypeOfSymbolAtLocation(prop, prop.valueDeclaration);
 
         const propValue = defaultValueFunction({
             type: propType,
             typeChecker,
             override: overrideValueExpression,
-            parameter: prop.getName(),
+            parameter: propName,
             currentFile,
             options,
             level,
@@ -200,7 +214,7 @@ export const classHandler: DefaultValueHandler = (
         const overrideAssignmentStatement = factory.createExpressionStatement(
             factory.createBinaryExpression(
                 factory.createElementAccessExpression(
-                    classInstanceIdentifier, factory.createStringLiteral(prop.getName()),
+                    classInstanceIdentifier, propKey,
                 ),
                 factory.createToken(SyntaxKind.EqualsToken),
                 propValue.data,
@@ -251,11 +265,25 @@ export const classHandler: DefaultValueHandler = (
             throw new Error(`Value declaration for override property is of unknown type ${overrideProperty.getName()}`);
         }
 
+        let propName = overrideProperty.getName();
+        let propKey: string | Expression = factory.createStringLiteral(propName);
+        if (overrideProperty.links?.nameType && isSymbolType(overrideProperty.links.nameType)) {
+            propName = overrideProperty.links.nameType.symbol.getName();
+            propKey = defaultValueFunction({
+                    type: overrideProperty.links.nameType,
+                    typeChecker,
+                    override: undefined,
+                    currentFile,
+                    options,
+                    level,
+                }).data;
+        }
+
         const propValue = defaultValueFunction({
             type: indexSignatureType,
             typeChecker,
             override: overrideValueExpression,
-            parameter: overrideProperty.getName(),
+            parameter: propName,
             currentFile,
             options,
             level,
@@ -267,7 +295,7 @@ export const classHandler: DefaultValueHandler = (
         const overrideAssignmentStatement = factory.createExpressionStatement(
             factory.createBinaryExpression(
                 factory.createElementAccessExpression(
-                    classInstanceIdentifier, factory.createStringLiteral(overrideProperty.getName()),
+                    classInstanceIdentifier, propKey,
                 ),
                 factory.createToken(SyntaxKind.EqualsToken),
                 propValue.data,
